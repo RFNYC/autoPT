@@ -1,6 +1,6 @@
-# This script will be a wrapper to interface with packet tracer & write ExApps faster. 
-# It is built on top of CPT test script "ptmp-negot-textenc.py", Source: https://github.com/bfranske/pt-python-examples by Ben Franske.
-
+# autoPT
+This project will be a wrapper to interface with packet tracer & write ExApps faster. 
+It is built on top of CPT test script "ptmp-negot-textenc.py", Source: https://github.com/bfranske/pt-python-examples by Ben Franske.
 
 To turn an XML & Python script into a .pta to be used by packet tracer you need to have the following:
 an XML file:   ptmp-test.xml
@@ -16,5 +16,3 @@ trace:
 
 the integrity file is essentially the source of the app you want packet tracer to run
 this can be an .exe, a .py file, whatever.
-
-SOURCE: https://github.com/bfranske/pt-python-examples
