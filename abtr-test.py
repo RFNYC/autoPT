@@ -115,6 +115,10 @@ class AutoPT:
                 pass
 
     # Utilities
+    def new_call_ID(self):
+        self.total_calls = self.total_calls + 1
+        call_id = self.total_calls
+        return call_id
 
     def send_packet(self, ipc_call_string):
         # This function just formats the IPC calls you make into a packet for CPT 
@@ -122,7 +126,6 @@ class AutoPT:
         type = str(100).encode('utf-8') + b'\0' # PTMP message type is between 100 and 199 for IPC call messages
         length = str(len(type+encoded_value)).encode('utf-8') + b'\0'
         request = length+type+encoded_value
-        
         
         print(request)
         print("IPC call sent.")
@@ -137,11 +140,40 @@ class AutoPT:
                 return data
         except socket.timeout:
             pass
+    
+    # converts raw byte responses into a list of values we can use and returns the entire thing
+    """
+    Upon reviewing the fields are this:
+    Length,  Msg-Type, Call-ID, ReturnType, ReturnVal
+         X          X        X           X          X
+    See CCNA notes for more details.
+    """
+    def convert_rb_response(self, raw_byte):
+        # ----- POSSIBLY INCLUDE THIS IN SEND PACKET IF ALL RESPONSES ARE FORMATED THE SAME WAY ------
+        # trimming off the b'...' part from the full response b'<response>'
+        response_fields = str(raw_byte)[2:]
+        response_fields = response_fields[:-1]
 
-    # API
+        # return the fields as a list using \x00 as the separator
+        fields = response_fields.split(r"\x00")
+        return fields
+    
+    """
+    Upon reviewing, the expected response fields are:
+    Length,  Msg-Type, Call-ID, ReturnType, ReturnVal
+         X          X        X           X          X
+    See CCNA notes for more details.
+    """
+
+    def get_return_value(self, raw_byte):
+        fields = self.convert_rb_response(raw_byte)  # returns just the return value from the response fields.
+        return fields[4] 
+        
+
+
+    # COMMANDS/API
     def console_log(self, msg):
-        self.total_calls = self.total_calls + 1
-        call_id = self.total_calls
+        call_id = self.new_call_ID()
         
         # This will change for each command in the API
         # appWindow [STOP] 0 [STOP] writeToPT
@@ -150,7 +182,36 @@ class AutoPT:
         arg_type = 9 # Tells PT to interperet the incoming info as a string
         args = msg
         ipc_call_string = f"{call_id}\0{call_name}\0{arg_type}\0{args}\0 0 \0"  # the extra   "0 \0"   at the end (not including the \0 after args) tells PT the command ends.
-        self.send_packet(ipc_call_string)
+        response = self.send_packet(ipc_call_string)      
+        return response
+    
+    # Returns the number of devices on the network topology.
+    def all_device_count(self):
+        call_id = self.new_call_ID()
+        call_name = "network\0 0 \0getDeviceCount"
+        ipc_call_string = f"{call_id}\0{call_name}\0 0 \0"
+
+        response = self.send_packet(ipc_call_string)
+        device_count = int(self.get_return_value(response)) - 1  # small correction here, it always counts 1 more device than there actually is.
+        
+        print(f"Devices counted: {device_count}")
+        return device_count
+    
+    def new_command(self):
+        call_id = self.new_call_ID()
+        call_name = "network\0 0 \0getDevice"
+        arg_type = 9
+        args = "Router2"
+        ipc_call_string = f"{call_id}\0{call_name}\0{arg_type}\0{args}\0 0 \0getModel\0 0 \0"
+        
+        response = self.send_packet(ipc_call_string)
+        return_val = self.get_return_value(response)
+
+        print(f"Router2 Model: {return_val}")
+        return return_val
+
+# TODO: Write an algorithm that allows you to navigate IPC api easily in CLI. EX: network getDevice 9 Router2 getModel  ==> OUTPUT: ISR4321
+# TODO: See Ben's instructions for registering ExApp ID and keys for xml or whatever its called.
 
 server_address = '127.0.0.1'
 username = "net.ihitc.ptmptest"  # Replace with your registered ExApp ID
@@ -158,4 +219,5 @@ password = "cisco"  # Replace with your ExApp key
 
 PT = AutoPT(constants, server_address, username, password)
 PT.connect()
-PT.console_log("HELLO WORLD!")
+PT.new_command()
+
