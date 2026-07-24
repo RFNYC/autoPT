@@ -1,3 +1,4 @@
+import shlex
 import uuid
 import time
 import socket
@@ -161,6 +162,7 @@ class AutoPT:
 
     def get_return_value(self, raw_byte):
         fields = self.convert_rb_response(raw_byte)  # returns just the return value from the response fields.
+        print(fields)
         return fields[4] 
         
 
@@ -191,53 +193,54 @@ class AutoPT:
         print(f"Devices counted: {device_count}")
         return device_count
     
-    def new_command(self):
-        call_id = self.new_call_ID()
-        call_name = "network\0 0 \0getDevice"
-        arg_type = 9
-        args = "Router2"
-        ipc_call_string = f"{call_id}\0{call_name}\0{arg_type}\0{args}\0 0 \0getModel\0 0 \0"
-        
-        response = self.send_packet(ipc_call_string)
-        return_val = self.get_return_value(response)
-
-        print(f"Router2 Model: {return_val}")
-        return return_val
-    
     # This is allows you to directly query the IPC api via the command line for testing.
     # sucks ass
-    def cli_tool(self):     
-        call_id = self.new_call_ID()
-        temp = input("Write command: ").strip()
-        temp = temp.split(" ")
-        temp2 = []
-        start_index = f"{temp[0]}\0 0 \0"
-        
-        key_words = temp[2:]
-        for i in range(len(key_words)):
-            if key_words[i] != ">":
-                if i == len(key_words) - 1:
-                    temp2.append(key_words[i])
-                    temp2.append("\0 0 \0")
-                else:
-                    temp2.append(key_words[i])    
-                    temp2.append("\0")
+    def cli_tool(self):
+
+        while True:
+            call_id = self.new_call_ID()
+            command_in = input(fr"OwO\> ")
+            command = command_in.strip()
+
+            if command == "break":
+                print("exiting...")
+                break
             else:
-                temp2.append(" 0 \0")
+                tokens = shlex.split(command)
+                temp = []
 
-        args = "".join(temp2)
-        command = start_index + args
-        full_command = f"{call_id}\0" + command
-        print(full_command)
-        print("Sending to packet tracer...")
-        response = self.send_packet(full_command)
-        print(f"response: {self.get_return_value(response)}")
+                for i in range(len(tokens)):
+                    if tokens[i] == ">":
+                        temp.pop()
+                        temp.append("\0 0 \0")
+                    else:
+                        temp.append(tokens[i])
+                        temp.append('\0')
 
-# TODO:
-#  Write an algorithm that allows you to navigate IPC api easily in CLI. EX: network getDevice 9 Router2 getModel  ==> OUTPUT: ISR4321#
-#  - Built it, spend tomorrow looking into other commands you might want to use, see if they can be called via CLI.
+                    if i == len(tokens) - 1:
+                        temp.pop()
+                        temp.append("\0 0 \0")
 
-# TODO: See Ben's instructions for registering ExApp ID and keys for xml or whatever its called.
+                command = "".join(temp)
+                        
+                full_command = f"{call_id}\0" + command
+                print(full_command)
+                print("Sending to packet tracer...")
+                response = self.send_packet(full_command)
+                response_fields = self.convert_rb_response(response)
+                response_fields.pop()
+
+                if len(response_fields) <= 5:
+                    print(f"PT-Response: {response_fields[4]}")
+                else:
+                    print("PT-Response: None")
+
+# TODO: 
+# Find a way to save your index position meaning the next time you write a command you'll start from where you last typed.
+# Automatically retrieve all devices on the toplogy on startup
+# Write a list of basic automations that can be done for each PT project, try automating the setup of an entire node & save it as a 1 button preset.
+# See Ben's instructions for registering ExApp ID and keys for xml or whatever its called.
+
 
 server_address = '127.0.0.1'
 username = "net.ihitc.ptmptest"  # Replace with your registered ExApp ID
@@ -246,4 +249,3 @@ password = "cisco"  # Replace with your ExApp key
 PT = AutoPT(constants, server_address, username, password)
 PT.connect()
 PT.cli_tool()
-

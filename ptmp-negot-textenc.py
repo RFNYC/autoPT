@@ -138,5 +138,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             if not data:
                 break
             print(f"Received: {data}")
+            print(request, "<--- request found")
     except socket.timeout:
         pass
